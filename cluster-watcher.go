@@ -63,7 +63,13 @@ func etcdHandleErr(err error) {
 
 func etcdPopulateContainerInfo(kapi etcd.KeysAPI, inspect types.ContainerJSON, info types.Info) {
 	etcdSetValue(kapi, "/swarm/container_id/"+inspect.ID+"/container_hostname", inspect.Config.Hostname+inspect.Config.Domainname)
-	etcdSetValue(kapi, "/swarm/container_id/"+inspect.ID+"/container_ip", inspect.NetworkSettings.IPAddress)
+	for name, v := range inspect.NetworkSettings.Networks {
+		if name == "ingress" {
+			etcdSetValue(kapi, "/swarm/container_id/"+inspect.ID+"/container_public_ip", v.IPAddress)
+		} else {
+			etcdSetValue(kapi, "/swarm/container_id/"+inspect.ID+"/network/"+name+"/container_ip", v.IPAddress)
+		}
+	}
 	etcdSetValue(kapi, "/swarm/container_id/"+inspect.ID+"/swarm_node_id", info.Swarm.NodeID)
 	//"com.docker.compose.service"
 	etcdSetValue(kapi, "/swarm/container_id/"+inspect.ID+"/service_name", inspect.Config.Labels["com.docker.swarm.service.name"])
