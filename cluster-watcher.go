@@ -14,19 +14,17 @@ import (
 )
 
 func etcdRmKey(k etcd.KeysAPI, key string) {
-	resp, err := k.Delete(context.Background(), key, &etcd.DeleteOptions{Dir: true, Recursive: true})
-	log.Printf("Set is done. Metadata is %q\n", resp)
+	_, err := k.Delete(context.Background(), key, &etcd.DeleteOptions{Dir: true, Recursive: true})
 	etcdHandleErr(err)
+	log.Printf("etcd rm key %s is done\n", key)
 }
 func etcdSetKey(k etcd.KeysAPI, key string) {
-	resp, err := k.Set(context.Background(), key, "", &etcd.SetOptions{Dir: true})
-	log.Printf("Set is done. Metadata is %q\n", resp)
+	_, err := k.Set(context.Background(), key, "", &etcd.SetOptions{Dir: true})
 	etcdHandleErr(err)
 }
 
 func etcdSetValue(k etcd.KeysAPI, key string, value string) {
 	_, err := k.Set(context.Background(), key, value, &etcd.SetOptions{Dir: false})
-	//log.Printf("Set is done. Metadata is %q\n", resp)
 	etcdHandleErr(err)
 }
 
@@ -73,6 +71,8 @@ func etcdPopulateContainerInfo(kapi etcd.KeysAPI, inspect types.ContainerJSON, i
 	etcdSetValue(kapi, "/swarm/container_id/"+inspect.ID+"/swarm_node_id", info.Swarm.NodeID)
 	//"com.docker.compose.service"
 	etcdSetValue(kapi, "/swarm/container_id/"+inspect.ID+"/service_name", inspect.Config.Labels["com.docker.swarm.service.name"])
+	//log changes
+	etcdPrintRec(kapi, "/swarm/container_id/"+inspect.ID)
 }
 
 func main() {
