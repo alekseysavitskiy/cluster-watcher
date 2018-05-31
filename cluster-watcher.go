@@ -58,19 +58,24 @@ func etcdHandleErr(err error) {
 		}
 	}
 }
+func etcdCleanupInfo(kapi etcd.KeysAPI, inspect types.ContainerJSON) {
+	swarmNodeIde := inspect.Config.Labels["com.docker.swarm.node.id"]
+	etcdRmKey(kapi, "/swarm/container_id/"+inspect.ID)
+	etcdRmKey(kapi, "/swarm/node_id/"+swarmNodeIde+"/service_name/"+inspect.Config.Labels["com.docker.swarm.service.name"]+"/container_id/"+inspect.ID)
+}
 
-func etcdPopulateContainerInfo(kapi etcd.KeysAPI, inspect types.ContainerJSON, info types.Info) {
+func etcdPopulateContainerInfo(kapi etcd.KeysAPI, inspect types.ContainerJSON) {
+	swarmNodeIde := inspect.Config.Labels["com.docker.swarm.node.id"]
 	etcdSetValue(kapi, "/swarm/container_id/"+inspect.ID+"/container_hostname", inspect.Config.Hostname+inspect.Config.Domainname)
 	for name, v := range inspect.NetworkSettings.Networks {
-		if name == "ingress" {
-			etcdSetValue(kapi, "/swarm/container_id/"+inspect.ID+"/container_public_ip", v.IPAddress)
-		} else {
-			etcdSetValue(kapi, "/swarm/container_id/"+inspect.ID+"/network/"+name+"/container_ip", v.IPAddress)
-		}
+		etcdSetValue(kapi, "/swarm/container_id/"+inspect.ID+"/network/"+name+"/container_ip", v.IPAddress)
 	}
-	etcdSetValue(kapi, "/swarm/container_id/"+inspect.ID+"/swarm_node_id", info.Swarm.NodeID)
+	etcdSetValue(kapi, "/swarm/container_id/"+inspect.ID+"/swarm_node_id", swarmNodeIde)
 	//"com.docker.compose.service"
 	etcdSetValue(kapi, "/swarm/container_id/"+inspect.ID+"/service_name", inspect.Config.Labels["com.docker.swarm.service.name"])
+
+	etcdSetKey(kapi, "/swarm/node_id/"+swarmNodeIde+"/service_name/"+inspect.Config.Labels["com.docker.swarm.service.name"]+"/container_id/"+inspect.ID)
+
 	//log changes
 	etcdPrintRec(kapi, "/swarm/container_id/"+inspect.ID)
 }
@@ -101,11 +106,6 @@ func main() {
 		panic(err)
 	}
 
-	info, err := cli.Info(context.Background())
-	if err != nil {
-		panic(err)
-	}
-
 	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{})
 	if err != nil {
 		panic(err)
@@ -115,7 +115,7 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		etcdPopulateContainerInfo(kapi, inspect, info)
+		etcdPopulateContainerInfo(kapi, inspect)
 	}
 
 	etcdPrintRec(kapi, "/swarm")
@@ -131,14 +131,19 @@ func main() {
 			switch event.Status {
 			case "die":
 				log.Printf("docker event action %s \t\t %s\n", event.Action, event.ID)
-				etcdRmKey(kapi, "/swarm/container_id/"+event.ID)
+				inspect, err := cli.ContainerInspect(context.Background(), event.ID)
+				if err != nil {
+					panic(err)
+				}
+				etcdCleanupInfo(kapi, inspect)
+
 			case "start":
 				log.Printf("docker event action  %s \t\t %s\n", event.Action, event.ID)
 				inspect, err := cli.ContainerInspect(context.Background(), event.ID)
 				if err != nil {
 					panic(err)
 				}
-				etcdPopulateContainerInfo(kapi, inspect, info)
+				etcdPopulateContainerInfo(kapi, inspect)
 			}
 
 		case err := <-errch:
