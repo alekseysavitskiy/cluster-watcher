@@ -74,7 +74,7 @@ func etcdPopulateContainerInfo(kapi etcd.KeysAPI, inspect types.ContainerJSON) {
 	//"com.docker.compose.service"
 	etcdSetValue(kapi, "/swarm/container_id/"+inspect.ID+"/service_name", inspect.Config.Labels["com.docker.swarm.service.name"])
 
-	etcdSetKey(kapi, "/swarm/node_id/"+swarmNodeIde+"/service_name/"+inspect.Config.Labels["com.docker.swarm.service.name"]+"/container_id/"+inspect.ID)
+	etcdSetValue(kapi, "/swarm/node_id/"+swarmNodeIde+"/service_name/"+inspect.Config.Labels["com.docker.swarm.service.name"]+"/container_id", inspect.ID)
 
 	//log changes
 	etcdPrintRec(kapi, "/swarm/container_id/"+inspect.ID)
