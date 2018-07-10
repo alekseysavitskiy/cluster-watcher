@@ -14,7 +14,8 @@ import (
 )
 
 func etcdRmKey(k etcd.KeysAPI, key string) {
-	_, err := k.Delete(context.Background(), key, &etcd.DeleteOptions{Dir: true, Recursive: true})
+
+	_, err := k.Delete(context.Background(), key, &etcd.DeleteOptions{Dir: true, Recursive: etcdIsDir(k, key)})
 	etcdHandleErr(err)
 	log.Printf("etcd rm key %s is done\n", key)
 }
@@ -26,6 +27,14 @@ func etcdSetKey(k etcd.KeysAPI, key string) {
 func etcdSetValue(k etcd.KeysAPI, key string, value string) {
 	_, err := k.Set(context.Background(), key, value, &etcd.SetOptions{Dir: false})
 	etcdHandleErr(err)
+}
+func etcdIsDir(k etcd.KeysAPI, key string) (isDir bool) {
+	resp, err := k.Get(context.Background(), key, &etcd.GetOptions{Recursive: false})
+	for _, node := range resp.Node.Nodes {
+		isDir = node.Dir
+	}
+	etcdHandleErr(err)
+	return
 }
 
 func etcdPrintRec(k etcd.KeysAPI, key string) {
